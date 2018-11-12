@@ -8,7 +8,7 @@ import numpy as np
 
 ## Add new supported providers here
 class tiingo_stock_data():
-    tiingo_api_token = '2fd8a287a3e17f5b9df11354cc45d93f93a7b6df'
+    tiingo_api_token = '<place_your_api_token_here>'
 
     def __init__(self, symbol):
         self.symbol = symbol
