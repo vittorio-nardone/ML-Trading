@@ -6,3 +6,7 @@ This repository includes basic python classes to perform:
  - machine learning network training/validation/test dataset
 
 Under development - first commit
+
+# About data
+Data is provided by Tiingo (https://www.tiingo.com/welcome)
+Signup to obtain API KEY.
