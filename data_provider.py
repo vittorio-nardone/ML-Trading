@@ -8,7 +8,7 @@ import numpy as np
 
 ## Add new supported providers here
 class tiingo_stock_data():
-    tiingo_api_token = '<place_your_api_token_here>'
+    tiingo_api_token = '2fd8a287a3e17f5b9df11354cc45d93f93a7b6df'
 
     def __init__(self, symbol):
         self.symbol = symbol
@@ -196,6 +196,45 @@ class hist_stock_data():
         return upper_band, lower_band
 
 
+    def indicators_grid(self, symbol, ma_rolling_windows=[7, 21], bb_rolling_windows=[21], bb_sizes=[2], ema_com=0.5, mom_rolling_windows=[7]):
+
+        tmp = self.df.loc[symbol].copy()
+
+        # rolling mean
+        for w in ma_rolling_windows:
+            tmp['ma_{}'.format(w)] = tmp['adjClose'].rolling(w).mean()
+
+        # bollinger_bands
+        for w in bb_rolling_windows:
+            rm = tmp['adjClose'].rolling(w).mean()
+            rstd = tmp['adjClose'].rolling(w).std()
+
+            for std_size in bb_sizes:
+                tmp['bb_up_{}_{}'.format(std_size, w)] = rm + std_size * rstd
+                tmp['bb_low_{}_{}'.format(std_size, w)]  = rm - std_size * rstd
+                #tmp['mom_{}'.format(w)] = tmp['adjClose'].rolling(w).apply(mom_func, raw=True)    
+
+            tmp.dropna(inplace = True)
+
+        # daily return
+        tmp['dr'] = tmp['adjClose'] - tmp['adjClose'].shift(1)
+        tmp.fillna(0, inplace = True)
+        
+        # MACD
+        close_26_ewma = tmp['adjClose'].ewm(span=26, min_periods=0, adjust=True, ignore_na=True).mean()
+        close_12_ewma = tmp['adjClose'].ewm(span=12, min_periods=0, adjust=True, ignore_na=True).mean()
+        tmp['MACD'] = (close_12_ewma-close_26_ewma)
+
+        # Exponential moving average
+        tmp['ema'] = tmp['adjClose'].ewm(com=ema_com).mean()
+
+        # Momentum
+        mom_func = lambda x: (x[-1] - x[0])
+        for w in mom_rolling_windows:
+            tmp['mom_{}'.format(w)] = tmp['adjClose'].rolling(w).apply(mom_func, raw=True)    
+
+        return tmp
+
     ### Following indicators are stock price independent (ML)
 
     def bb(self, window, std_size = 2, symbols = []):
@@ -216,14 +255,14 @@ class hist_stock_data():
         mom_func = lambda x: (x[-1] / x[0]) -1
         return adjClose.rolling(window).apply(mom_func, raw=True)
 
-    def indicators_grid(self, symbol, rolling_windows = [10], bb_sizes = [2]):
+
+    def normalized_indicators_grid(self, symbol, rolling_windows = [10], bb_sizes = [2]):
         """Return indicators of specified symbol."""
 
         sma_func = lambda x: (x[-1] / x.mean()) -1
         mom_func = lambda x: (x[-1] / x[0]) -1
 
         tmp = self.df.loc[symbol].copy()
-
         for w in rolling_windows:
             for std_size in bb_sizes:
                 bb_func = lambda x: (x[-1] - x.mean()) / (std_size * x.std())
@@ -235,7 +274,6 @@ class hist_stock_data():
 
         tmp['dr'] = tmp['adjClose'] / tmp['adjClose'].shift(1) -1
         tmp.fillna(0, inplace = True)
-
         return tmp
 
     # end of stats section
@@ -295,7 +333,7 @@ def test_run():
     test = hist_stock_data(['AAPL'], intersect = True)
     test.restrict_date_range('2017-01-01', '2018-01-01')
 
-    tmp = test.indicators_grid('AAPL', rolling_windows = [3,10,30,90], bb_sizes = [1.5,2,2.5,3])
+    temp = test.indicators_grid('AAPL', rolling_windows = [3,10,30,90], bb_sizes = [1.5,2,2.5,3])
 
     print(temp.head())
 
