@@ -179,7 +179,7 @@ def main():
         days = 1
     else:
         days = int(sys.argv[1])
-    reuter_crawler.run(days, ['GS'])
+    reuter_crawler.run(days, ['GS','JPM','MS'])
 
 if __name__ == "__main__":
     main()
