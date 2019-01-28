@@ -1,7 +1,8 @@
 import pandas as pd
 pd.core.common.is_list_like = pd.api.types.is_list_like  #bugfix, pandas_datareader fix to be compatible with pandas 0.23
 import pandas_datareader.data as pdr
-import datetime
+from datetime import datetime
+from datetime import timedelta
 import os.path
 import matplotlib.pyplot as plt
 import numpy as np
@@ -306,6 +307,75 @@ class hist_stock_data():
     # end of Easy access to data
 
 
+
+class stock_news_data():
+    def __init__(self, symbols = [], filename = 'news_provider/data/news_reuters.csv', normal_only = True):
+        """Init class and add stock new"""
+        dateparse = lambda x: datetime.strptime(x, '%Y%m%d')
+        self.df = pd.read_csv(filename, parse_dates = ['date'], names=['symbol', 'symbol_desc', 'date', 'title', 'description', 'level'], date_parser=dateparse, header=None)
+
+        if symbols != []:
+            self.df = self.df.loc[self.df['symbol'].isin(symbols)]
+
+        if normal_only:
+            self.df = self.df.loc[self.df['level'] == 'normal']
+
+        # Remove empty description
+        self.df = self.df.loc[self.df['description'].str.strip() != '']
+
+        # and duplicates
+        self.df.drop_duplicates(inplace=True)  
+        # 
+        self.df.set_index(['symbol','date'], inplace=True)  
+        
+    def add_stock_values(self, stock_data):
+        """Get a hist_stock_data object and add columns to news dataframe"""
+        # add clean columns
+        self.df["adjOpen_sameday"] = np.nan
+        self.df["adjClose_sameday"] = np.nan
+        self.df["adjClose_nextday"] = np.nan
+        self.df["trend"] = np.nan
+
+        # iterate on news
+        for index, row in self.df.iterrows():
+            index_symbol, index_dt = index
+
+            stock_data_found = False
+            days_offset = 0
+    
+            # try to find stock data of the same news day (max 3 days later)
+            while ((not stock_data_found) and (days_offset < 4)):
+                try: 
+                    new_index_dt = index_dt +  timedelta(days=days_offset)
+                    stock_row_index = stock_data.df.index.get_loc((index_symbol, new_index_dt))
+                    stock_data_found = True
+                except KeyError:
+                    days_offset += 1
+    
+            #print('News timestamp: {}'.format(index_dt))
+            if stock_data_found:
+                #print('Found stock row at position {} with timestamp: {}'.format(stock_row_index, new_index_dt))
+                # same day
+                adjOpen_sameday = stock_data.df.iloc[stock_row_index]['adjOpen']  
+                adjClose_sameday = stock_data.df.iloc[stock_row_index]['adjClose']
+                adjClose_nextday = adjClose_sameday
+                # try to find next day close 
+                try:
+                    adjClose_nextday = stock_data.df.iloc[stock_row_index+1]['adjClose']
+                except IndexError:
+                    #print('!next day not found')
+                    pass
+                #print('adjOpen: {} adjClose_sameday: {} adjClose_nextday: {}'.format(adjOpen_sameday,adjClose_sameday,adjClose_nextday))
+                self.df.loc[index,"adjOpen_sameday"] = adjOpen_sameday
+                self.df.loc[index,"adjClose_sameday"] = adjClose_sameday
+                self.df.loc[index,"adjClose_nextday"] = adjClose_nextday
+
+                self.df.loc[index,"trend"] = (((adjClose_sameday / adjOpen_sameday) - 1) + ((adjClose_nextday / adjOpen_sameday) - 1)) / 2
+            else:
+                #print('Stock data not found!')
+                pass
+
+
 def bb_test_run():
     test = hist_stock_data(['PPG'], intersect = True)
     test.restrict_date_range('2017-01-01', '2018-01-01')
@@ -333,7 +403,7 @@ def test_run():
     test = hist_stock_data(['AAPL'], intersect = True)
     test.restrict_date_range('2017-01-01', '2018-01-01')
 
-    temp = test.indicators_grid('AAPL', rolling_windows = [3,10,30,90], bb_sizes = [1.5,2,2.5,3])
+    temp = test.normalized_indicators_grid('AAPL', rolling_windows = [3,10,30,90], bb_sizes = [1.5,2,2.5,3])
 
     print(temp.head())
 
