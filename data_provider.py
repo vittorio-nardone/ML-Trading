@@ -370,10 +370,16 @@ class stock_news_data():
                 self.df.loc[index,"adjClose_sameday"] = adjClose_sameday
                 self.df.loc[index,"adjClose_nextday"] = adjClose_nextday
 
-                self.df.loc[index,"trend"] = (((adjClose_sameday / adjOpen_sameday) - 1) + ((adjClose_nextday / adjOpen_sameday) - 1)) / 2
+                trend_sameday, trend_nextday, w_sameday, w_nextday = (adjClose_sameday / adjOpen_sameday) - 1,  (adjClose_nextday / adjOpen_sameday) - 1, 1, 1
+                if (np.sign(trend_sameday) != np.sign(trend_nextday)):
+                    w_sameday = .5
+
+                self.df.loc[index,"trend"] = ((w_sameday * trend_sameday) + (w_nextday * trend_nextday)) / 2
             else:
                 #print('Stock data not found!')
                 pass
+        
+        self.df['trend_flag'] = self.df['trend'].apply(lambda x: 0 if abs(x) < 0.01 else int(np.sign(x)))
 
 
 def bb_test_run():
