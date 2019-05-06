@@ -37,6 +37,10 @@ class prediction_model():
         return self.ds.iloc[:train_count], self.ds.iloc[train_count:]
 
 
+
+
+
+
 def test_run():
     test = dp.hist_stock_data(['AAPL'], intersect = True)
     test.restrict_date_range('2010-01-01', '2018-01-01')

@@ -235,7 +235,40 @@ class hist_stock_data():
             tmp['mom_{}'.format(w)] = tmp['adjClose'].rolling(w).apply(mom_func, raw=True)    
 
         return tmp
+    
+    def trend_class(self, delta, high_th = 0.05, low_th = 0.05):
+        """Delta is variation between two stock prices. Function returns trend class""" 
+        if (delta < high_th) and (delta > (-1 * low_th)):
+            res = 'stable'
+        elif (delta >= high_th):
+            res = 'high'
+        else:
+            res = 'low'
+        return res
+    
+    def trend_grid(self, symbol, rolling_windows = [10], high_th = 0.05, low_th = 0.05, drop_class_column = True, drop_value_column = True):
+        """Return a grid (one-hot encoding) using specified window sizes. Trend indicator at N days with threasholds.
+            LOW:  (value@futureNdays - value@today) < -low_th% 
+            HIGH: (value@futureNdays - value@today) >  high_th%
+            STABLE: (value@futureNdays - value@today) is in [-low_th%, +high_th%]
+        """
+        
+        tmp = self.df.loc[symbol].copy()
+        for w in rolling_windows:    
+            tmp['trend_{}'.format(w)] = tmp['adjClose'].shift(-1 * w) / tmp['adjClose'] - 1
+            tmp['trend_{}_class'.format(w)] = tmp['trend_{}'.format(w)].apply(lambda x: self.trend_class(x, high_th, low_th))
+            tmp['trend_{}_class'.format(w)] = tmp['trend_{}_class'.format(w)].astype('category')
+            tmp = pd.concat([tmp,pd.get_dummies(tmp['trend_{}_class'.format(w)],prefix='trend_{}'.format(w))],axis=1)
+            if drop_class_column:
+                tmp.drop(['trend_{}_class'.format(w)],axis=1, inplace=True)
+            if drop_value_column:
+                tmp.drop(['trend_{}'.format(w)],axis=1, inplace=True)
+            
+        return tmp
 
+    
+    
+    
     ### Following indicators are stock price independent (ML)
 
     def bb(self, window, std_size = 2, symbols = []):
@@ -276,7 +309,7 @@ class hist_stock_data():
         tmp['dr'] = tmp['adjClose'] / tmp['adjClose'].shift(1) -1
         tmp.fillna(0, inplace = True)
         return tmp
-
+    
     # end of stats section
 
     # Easy access to data
@@ -406,6 +439,7 @@ def bb_test_run():
     plt.show()
 
 def test_run():
+
     test = hist_stock_data(['AAPL'], intersect = True)
     test.restrict_date_range('2017-01-01', '2018-01-01')
 
