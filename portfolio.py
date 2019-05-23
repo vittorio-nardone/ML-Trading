@@ -37,7 +37,7 @@ class sr_portfolio_optimizer():
     def sharp_ratio(self, allocation = []):
         """Compute and return the sharp ratio of portoflio calculated on daily returns with specified allocation."""
         if allocation == []:
-            allocation = equally_allocation()
+            allocation = self.equally_allocation()
         return self.__compute_portfolio_sharp_ratio(allocation, {'inverted': False})
 
     def optimize_allocation(self, disp = False, method='SLSQP'):

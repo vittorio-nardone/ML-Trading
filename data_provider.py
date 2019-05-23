@@ -6,13 +6,20 @@ from datetime import timedelta
 import os.path
 import matplotlib.pyplot as plt
 import numpy as np
+import json
+
+def load_api_conf(filename = 'api_conf.json'):
+    with open(filename) as json_file:  
+        data = json.load(json_file)
+        return data
 
 ## Add new supported providers here
 class tiingo_stock_data():
-    tiingo_api_token = '2fd8a287a3e17f5b9df11354cc45d93f93a7b6df'
 
     def __init__(self, symbol):
         self.symbol = symbol
+        api_config = load_api_conf()
+        self.tiingo_api_token = api_config['tiingo_api_token']
 
     def download(self, save = True):
         """Download and save data from provider"""
@@ -431,7 +438,7 @@ def bb_test_run():
     bb = test.bb(20)
     bb.plot(ax=ax)
 
-    ax.legend(["PPG", "Rolling mean", "Upper band", "Lower band"], loc='upper left');
+    ax.legend(["PPG", "Rolling mean", "Upper band", "Lower band"], loc='upper left')
 
     # Add axis labels and legend
     ax.set_xlabel("Date")
@@ -441,7 +448,7 @@ def bb_test_run():
 def test_run():
 
     test = hist_stock_data(['AAPL'], intersect = True)
-    test.restrict_date_range('2017-01-01', '2018-01-01')
+    test.restrict_date_range('2017-01-01', '2019-01-01')
 
     temp = test.normalized_indicators_grid('AAPL', rolling_windows = [3,10,30,90], bb_sizes = [1.5,2,2.5,3])
 
