@@ -5,7 +5,6 @@ import numpy as np
 
 import data_provider as dp
 
-
 class sr_portfolio_optimizer():
     """Create a porfolio of provided symbols and date range.
        Use 'optimize_allocation' method to get symbols allocation for best sharp_ratio

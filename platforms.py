@@ -54,12 +54,18 @@ class sandbox_platform():
             print(msg)
 
     # Market Prices
-    def set_symbol_value(self, symbol, price):
-        self.symbols[symbol] = price
+    def set_symbol_value(self, symbol, buy_price, sell_price):
+        self.symbols[symbol] = [buy_price, sell_price]
 
-    def get_symbol_value(self, symbol):
+    def get_buy_symbol_value(self, symbol):
         if symbol in self.symbols:
-            return self.symbols[symbol] 
+            return self.symbols[symbol][0] 
+        else:
+            return None
+
+    def get_sell_symbol_value(self, symbol):
+        if symbol in self.symbols:
+            return self.symbols[symbol][1] 
         else:
             return None
 
@@ -71,9 +77,9 @@ class sandbox_platform():
         value = 0
         for p in self.status['positions']:
             if p['is_long']:
-                value += p['quantity'] * self.get_symbol_value(p['symbol']) 
+                value += p['quantity'] * self.get_sell_symbol_value(p['symbol']) 
             else:
-                value += ((p['open_value'] - self.get_symbol_value(p['symbol'])) * p['quantity']) + (p['open_value'] * p['quantity']) 
+                value += ((p['open_value'] - self.get_buy_symbol_value(p['symbol'])) * p['quantity']) + (p['open_value'] * p['quantity']) 
         return value
 
     def get_balance_avail(self):
@@ -97,7 +103,10 @@ class sandbox_platform():
             return False
 
     def add_position(self, symbol, quantity, is_long = True):
-        value = self.get_symbol_value(symbol) 
+        if is_long:
+            value = self.get_buy_symbol_value(symbol) 
+        else:
+            value = self.get_sell_symbol_value(symbol) 
 
         if (self.status['balance_avail']) >= (value * quantity):
             self.status['positions'].append({  
@@ -119,10 +128,11 @@ class sandbox_platform():
     def close_position(self, position_id):
         if (position_id < len(self.status['positions'])):
             position = self.status['positions'].pop(position_id)
-            value = self.get_symbol_value(position['symbol'])
             if position['is_long']:
+                value = self.get_sell_symbol_value(position['symbol'])
                 self.status['balance_avail'] += (value * position['quantity'])
             else:
+                value = self.get_buy_symbol_value(position['symbol'])
                 self.status['balance_avail'] +=  ((position['open_value'] - value) * position['quantity']) + (position['open_value'] * position['quantity']) 
             self.history_add('CLOSE',position['symbol'],position['quantity'],value)
             return True
@@ -132,9 +142,9 @@ class sandbox_platform():
 def unit_test():
     test = sandbox_platform(filename = '')
     test.deposit(500)
-    test.set_symbol_value('EUR_USD',100)
+    test.set_symbol_value('EUR_USD',100,99)
     test.add_position('EUR_USD', 1, is_long = False)
-    test.set_symbol_value('EUR_USD',80)
+    test.set_symbol_value('EUR_USD',80,79)
     test.close_position(0)
     test.save_status()
 
