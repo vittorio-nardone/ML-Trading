@@ -21,14 +21,17 @@ class market_simulator():
         for index, row in df.iterrows():
             for symbol in symbols:
                 self.so.set_symbol_value(symbol, row[symbol], row[symbol])
-                #self.so.get_recommended_actions()
                 self.po.set_symbol_value(symbol, row[symbol], row[symbol])  
-                #self.po.process_actions()
+
+            actions = self.so.get_recommended_actions()
+            self.po.process_actions(actions)
+
+            print(self.po.get_positions())
 
 
 def unit_test():
     test_data = hist_stock_data(['AAPL'], intersect = True)
-    test_data.restrict_date_range('2017-01-01', '2019-01-01')
+    test_data.restrict_date_range('2018-12-01', '2019-01-01')
 
     test_platform = sandbox_platform(filename = '')
     test_platform.deposit(100000)

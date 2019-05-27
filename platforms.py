@@ -125,19 +125,53 @@ class sandbox_platform():
         else:
             return False
     
-    def close_position(self, position_id):
-        if (position_id < len(self.status['positions'])):
-            position = self.status['positions'].pop(position_id)
-            if position['is_long']:
-                value = self.get_sell_symbol_value(position['symbol'])
-                self.status['balance_avail'] += (value * position['quantity'])
+    def close_position(self, symbol, quantity):
+        new_positions = []
+        new_quantity = quantity
+        to_close = []
+        for position in self.status['positions']:
+            if position['symbol'] == symbol:
+                if new_quantity <= position['quantity']:
+                    if position['is_long']:
+                        value = self.get_sell_symbol_value(position['symbol'])
+                        self.status['balance_avail'] += (value * new_quantity)
+                    else:
+                        value = self.get_buy_symbol_value(position['symbol'])
+                        self.status['balance_avail'] +=  ((position['open_value'] - value) * new_quantity) + (position['open_value'] * new_quantity) 
+                    self.history_add('CLOSE',position['symbol'],new_quantity,value)
+                    position['quantity'] -= new_quantity
+                    new_quantity = 0
+                    if position['quantity']>0:
+                        new_positions.append(position)    
+                else:
+                    to_close.append(position)
+                    new_quantity -= position['quantity']
             else:
-                value = self.get_buy_symbol_value(position['symbol'])
-                self.status['balance_avail'] +=  ((position['open_value'] - value) * position['quantity']) + (position['open_value'] * position['quantity']) 
-            self.history_add('CLOSE',position['symbol'],position['quantity'],value)
+                new_positions.append(position)
+
+        if new_quantity == 0:
+            self.status['positions'] = new_positions
+            for position in to_close:
+                    if position['is_long']:
+                        value = self.get_sell_symbol_value(position['symbol'])
+                        self.status['balance_avail'] += (value * position['quantity'])
+                    else:
+                        value = self.get_buy_symbol_value(position['symbol'])
+                        self.status['balance_avail'] +=  ((position['open_value'] - value) * position['quantity']) + (position['open_value'] * position['quantity']) 
+                    self.history_add('CLOSE',position['symbol'],position['quantity'],value)
             return True
         else:
             return False
+
+    def process_actions(self, actions):
+        confirms = []
+        for action in actions:
+            if action['is_open']:
+                confirms.append(self.add_position(action['symbol'], action['quantity'], action['is_long']))
+            else:
+                confirms.append(self.close_position(action['symbol'], action['quantity']))
+        return confirms
+
 
 def unit_test():
     test = sandbox_platform(filename = '')
