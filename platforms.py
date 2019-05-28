@@ -18,7 +18,7 @@ class sandbox_platform():
         self.status = {}
         self.symbols = {}
 
-        self.status['balance_avail'] = 0
+        self.status['balance_avail'] = 0.0
         self.status['positions'] = []
         
         if activity_log_file != '':
@@ -74,7 +74,7 @@ class sandbox_platform():
         return self.status['balance_avail'] + self.opened_positions_value()
 
     def opened_positions_value(self):
-        value = 0
+        value = 0.0
         for p in self.status['positions']:
             if p['is_long']:
                 value += p['quantity'] * self.get_sell_symbol_value(p['symbol']) 
@@ -113,21 +113,22 @@ class sandbox_platform():
                 'symbol': symbol,
                 'quantity': quantity,
                 'is_long': is_long,
-                'open_value': value,
-                'position_id': len(self.status['positions'])
+                'open_value': value
             })
             self.status['balance_avail'] -= (value * quantity)
             if is_long:
                 self.history_add('OPEN_LONG',symbol,quantity,value)
             else:
                 self.history_add('OPEN_SHORT',symbol,quantity,value)
-            return True
+            return {'result':True}
         else:
-            return False
+            return {'result':False}
     
     def close_position(self, symbol, quantity):
         new_positions = []
         new_quantity = quantity
+        profit_loss = 0.0
+        opened_value = 0.0
         to_close = []
         for position in self.status['positions']:
             if position['symbol'] == symbol:
@@ -135,9 +136,13 @@ class sandbox_platform():
                     if position['is_long']:
                         value = self.get_sell_symbol_value(position['symbol'])
                         self.status['balance_avail'] += (value * new_quantity)
+                        profit_loss += (value - position['open_value']) * new_quantity
+                        opened_value += position['open_value'] * new_quantity
                     else:
                         value = self.get_buy_symbol_value(position['symbol'])
                         self.status['balance_avail'] +=  ((position['open_value'] - value) * new_quantity) + (position['open_value'] * new_quantity) 
+                        profit_loss += (position['open_value'] - value) * new_quantity
+                        opened_value += value * new_quantity
                     self.history_add('CLOSE',position['symbol'],new_quantity,value)
                     position['quantity'] -= new_quantity
                     new_quantity = 0
@@ -155,13 +160,17 @@ class sandbox_platform():
                     if position['is_long']:
                         value = self.get_sell_symbol_value(position['symbol'])
                         self.status['balance_avail'] += (value * position['quantity'])
+                        profit_loss += (value - position['open_value']) * position['quantity']
+                        opened_value += position['open_value'] * position['quantity']
                     else:
                         value = self.get_buy_symbol_value(position['symbol'])
                         self.status['balance_avail'] +=  ((position['open_value'] - value) * position['quantity']) + (position['open_value'] * position['quantity']) 
+                        profit_loss += (position['open_value'] - value) * position['quantity']
+                        opened_value += value * position['quantity']
                     self.history_add('CLOSE',position['symbol'],position['quantity'],value)
-            return True
+            return {'result':True, 'profit_loss':profit_loss, 'profit_loss_perc': profit_loss/opened_value}
         else:
-            return False
+            return {'result':False}
 
     def process_actions(self, actions):
         confirms = []
@@ -179,7 +188,7 @@ def unit_test():
     test.set_symbol_value('EUR_USD',100,99)
     test.add_position('EUR_USD', 1, is_long = False)
     test.set_symbol_value('EUR_USD',80,79)
-    test.close_position(0)
+    test.close_position('EUR_USD', 1)
     test.save_status()
 
 if __name__ == "__main__":
