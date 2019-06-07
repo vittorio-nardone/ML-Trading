@@ -45,8 +45,8 @@ class sandbox_platform():
                 
 
     # Operation history
-    def history_add(self, operation, symbol, quantity, open_value, on_screen = True):
-        row = [str(datetime.datetime.utcnow()), str(self.status['balance_avail']), str(len(self.status['positions'])), str(self.opened_positions_value()), operation, symbol, str(quantity), str(open_value)]
+    def history_add(self, operation, symbol, quantity, open_value, on_screen = True, time_ref = 0):
+        row = [str(datetime.datetime.utcnow()), str(self.status['balance_avail']), str(len(self.status['positions'])), str(self.opened_positions_value()), operation, str(symbol), str(quantity), str(open_value), str(time_ref)]
         msg = ','.join(row)
         if hasattr(self, 'activity_writer'): 
             self.activity_writer.writerow(row)   
@@ -73,13 +73,14 @@ class sandbox_platform():
     def get_balance_tot(self):
         return self.status['balance_avail'] + self.opened_positions_value()
 
-    def opened_positions_value(self):
+    def opened_positions_value(self, symbols = []):
         value = 0.0
         for p in self.status['positions']:
-            if p['is_long']:
-                value += p['quantity'] * self.get_sell_symbol_value(p['symbol']) 
-            else:
-                value += ((p['open_value'] - self.get_buy_symbol_value(p['symbol'])) * p['quantity']) + (p['open_value'] * p['quantity']) 
+            if (symbols == []) or (p['symbol'] in symbols):
+                if p['is_long']:
+                    value += p['quantity'] * self.get_sell_symbol_value(p['symbol']) 
+                else:
+                    value += ((p['open_value'] - self.get_buy_symbol_value(p['symbol'])) * p['quantity']) + (p['open_value'] * p['quantity']) 
         return value
 
     def get_balance_avail(self):
@@ -102,7 +103,7 @@ class sandbox_platform():
         else:
             return False
 
-    def add_position(self, symbol, quantity, is_long = True):
+    def add_position(self, symbol, quantity, is_long = True, time_ref = 0):
         if is_long:
             value = self.get_buy_symbol_value(symbol) 
         else:
@@ -113,22 +114,25 @@ class sandbox_platform():
                 'symbol': symbol,
                 'quantity': quantity,
                 'is_long': is_long,
-                'open_value': value
+                'open_value': value,
+                'open_time': time_ref
             })
             self.status['balance_avail'] -= (value * quantity)
             if is_long:
-                self.history_add('OPEN_LONG',symbol,quantity,value)
+                self.history_add('OPEN_LONG',symbol,quantity,value, time_ref = time_ref)
             else:
-                self.history_add('OPEN_SHORT',symbol,quantity,value)
+                self.history_add('OPEN_SHORT',symbol,quantity,value, time_ref = time_ref)
             return {'result':True}
         else:
             return {'result':False}
     
-    def close_position(self, symbol, quantity):
+    def close_position(self, symbol, quantity, time_ref = 0):
         new_positions = []
         new_quantity = quantity
         profit_loss = 0.0
         opened_value = 0.0
+        avg_duration = 0
+        affected = 0
         to_close = []
         for position in self.status['positions']:
             if position['symbol'] == symbol:
@@ -143,7 +147,7 @@ class sandbox_platform():
                         self.status['balance_avail'] +=  ((position['open_value'] - value) * new_quantity) + (position['open_value'] * new_quantity) 
                         profit_loss += (position['open_value'] - value) * new_quantity
                         opened_value += value * new_quantity
-                    self.history_add('CLOSE',position['symbol'],new_quantity,value)
+                    self.history_add('CLOSE',position['symbol'],new_quantity,value,time_ref=time_ref)
                     position['quantity'] -= new_quantity
                     new_quantity = 0
                     if position['quantity']>0:
@@ -151,6 +155,8 @@ class sandbox_platform():
                 else:
                     to_close.append(position)
                     new_quantity -= position['quantity']
+                avg_duration += time_ref - position['open_time'] 
+                affected += 1                      
             else:
                 new_positions.append(position)
 
@@ -167,18 +173,18 @@ class sandbox_platform():
                         self.status['balance_avail'] +=  ((position['open_value'] - value) * position['quantity']) + (position['open_value'] * position['quantity']) 
                         profit_loss += (position['open_value'] - value) * position['quantity']
                         opened_value += value * position['quantity']
-                    self.history_add('CLOSE',position['symbol'],position['quantity'],value)
-            return {'result':True, 'profit_loss':profit_loss, 'profit_loss_perc': profit_loss/opened_value}
+                    self.history_add('CLOSE',position['symbol'],position['quantity'],value,time_ref=time_ref)
+            return {'result':True, 'profit_loss':profit_loss, 'profit_loss_perc': profit_loss/opened_value, 'affected_position': affected, 'avg_duration': avg_duration/affected}
         else:
             return {'result':False}
 
-    def process_actions(self, actions):
+    def process_actions(self, actions, time_ref = 0):
         confirms = []
         for action in actions:
             if action['is_open']:
-                confirms.append(self.add_position(action['symbol'], action['quantity'], action['is_long']))
+                confirms.append(self.add_position(action['symbol'], action['quantity'], action['is_long'], time_ref = time_ref))
             else:
-                confirms.append(self.close_position(action['symbol'], action['quantity']))
+                confirms.append(self.close_position(action['symbol'], action['quantity'], time_ref = time_ref))
         return confirms
 
 

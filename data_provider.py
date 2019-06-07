@@ -320,7 +320,7 @@ class hist_stock_data():
     # end of stats section
 
     # Easy access to data
-    def __get_data_column(self, column, symbols = [], relative = False):
+    def __get_data_column(self, column, symbols = [], relative = False, fill_na = True):
         """Return column of specified symbols."""
         if symbols == []:
             symbols = list(self.df.index.levels[0])
@@ -334,13 +334,15 @@ class hist_stock_data():
                 col = col.join(tmp, how='outer')
             else:
                 col = tmp
+        if fill_na:
+            col.fillna(method='ffill', inplace = True)
         return col
 
-    def adjClose(self, symbols = [], relative = False):
+    def adjClose(self, symbols = [], relative = False, fill_na = True):
         """Return adjClose of specified symbols."""
         return self.__get_data_column('adjClose',symbols = symbols, relative = relative)
 
-    def adjVolume(self, symbols = [], relative = False):
+    def adjVolume(self, symbols = [], relative = False, fill_na = True):
         """Return adjVolume of specified symbols."""
         return self.__get_data_column('adjVolume',symbols = symbols, relative = relative)
 
